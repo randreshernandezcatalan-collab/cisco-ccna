@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSPF — Open Shortest Path First</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --node-bg: #1a1f35;
+    --node-border: #2d3561;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+
+    --c-fundamentos:  #38bdf8;
+    --c-vecindad:     #a855f7;
+    --c-diseno:       #f59e0b;
+    --c-ospfv2:       #38bdf8;
+    --c-verificacion: #10b981;
+    --c-ospfv3:       #10b981;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 24px 60px;
+    overflow-x: auto;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 12px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  header .label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  header h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: clamp(24px, 4vw, 38px);
+    background: linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #10b981 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+
+  header .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px 24px;
+    margin: 24px 0 40px;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+  }
+
+  /* ── MIND MAP GRID ── */
+  .mindmap {
+    display: grid;
+    grid-template-columns: 1fr 220px 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 32px 20px;
+    align-items: start;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+
+  /* Center circle */
+  .center-wrap {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .center-node {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1e3a5f, #0d1f3c);
+    border: 2px solid #2563eb;
+    box-shadow: 0 0 60px rgba(37,99,235,0.25), 0 0 120px rgba(37,99,235,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .center-node .ospf-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .center-node .ospf-sub {
+    font-size: 11px;
+    color: #93c5fd;
+    margin-top: 8px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
+
+  /* ── BRANCH CARDS ── */
+  .card {
+    border-radius: 14px;
+    padding: 18px 20px;
+    border: 1px solid;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-3px);
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    flex-shrink: 0;
+  }
+
+  /* Bullet items */
+  .items { display: flex; flex-direction: column; gap: 7px; }
+
+  .item {
+    display: flex;
+    gap: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+
+  .item::before {
+    content: '›';
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-weight: 700;
+    opacity: 0.6;
+  }
+
+  /* Code items */
+  .code-items { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+
+  .code-item {
+    font-family: 'Space Mono', monospace;
+    font-size: 10.5px;
+    color: #94a3b8;
+    background: rgba(255,255,255,0.04);
+    border-radius: 5px;
+    padding: 5px 9px;
+    border-left: 2px solid;
+    line-height: 1.5;
+  }
+
+  /* Color variants */
+  .card.fund {
+    background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(56,189,248,0.03));
+    border-color: rgba(56,189,248,0.3);
+    box-shadow: 0 0 30px rgba(56,189,248,0.05);
+  }
+  .card.fund:hover { box-shadow: 0 0 40px rgba(56,189,248,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.fund .card-title { color: #38bdf8; }
+  .card.fund .code-item { border-color: #38bdf8; }
+  .card.fund .item::before { color: #38bdf8; }
+
+  .card.vec {
+    background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(168,85,247,0.03));
+    border-color: rgba(168,85,247,0.3);
+    box-shadow: 0 0 30px rgba(168,85,247,0.05);
+  }
+  .card.vec:hover { box-shadow: 0 0 40px rgba(168,85,247,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.vec .card-title { color: #a855f7; }
+  .card.vec .code-item { border-color: #a855f7; }
+  .card.vec .item::before { color: #a855f7; }
+
+  .card.dis {
+    background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.03));
+    border-color: rgba(245,158,11,0.3);
+    box-shadow: 0 0 30px rgba(245,158,11,0.05);
+  }
+  .card.dis:hover { box-shadow: 0 0 40px rgba(245,158,11,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.dis .card-title { color: #f59e0b; }
+  .card.dis .code-item { border-color: #f59e0b; }
+  .card.dis .item::before { color: #f59e0b; }
+
+  .card.v2 {
+    background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(56,189,248,0.03));
+    border-color: rgba(56,189,248,0.3);
+    box-shadow: 0 0 30px rgba(56,189,248,0.05);
+  }
+  .card.v2:hover { box-shadow: 0 0 40px rgba(56,189,248,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.v2 .card-title { color: #38bdf8; }
+  .card.v2 .code-item { border-color: #38bdf8; }
+  .card.v2 .item::before { color: #38bdf8; }
+
+  .card.ver {
+    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03));
+    border-color: rgba(16,185,129,0.3);
+    box-shadow: 0 0 30px rgba(16,185,129,0.05);
+  }
+  .card.ver:hover { box-shadow: 0 0 40px rgba(16,185,129,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.ver .card-title { color: #10b981; }
+  .card.ver .code-item { border-color: #10b981; }
+  .card.ver .item::before { color: #10b981; }
+
+  .card.v3 {
+    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03));
+    border-color: rgba(16,185,129,0.3);
+    box-shadow: 0 0 30px rgba(16,185,129,0.05);
+  }
+  .card.v3:hover { box-shadow: 0 0 40px rgba(16,185,129,0.15), 0 8px 24px rgba(0,0,0,0.3); }
+  .card.v3 .card-title { color: #10b981; }
+  .card.v3 .code-item { border-color: #10b981; }
+  .card.v3 .item::before { color: #10b981; }
+
+  /* Grid positions */
+  .pos-fund { grid-column: 1; grid-row: 1; }
+  .pos-vec  { grid-column: 1; grid-row: 2; }
+  .pos-dis  { grid-column: 1; grid-row: 3; }
+  .pos-v2   { grid-column: 3; grid-row: 1; }
+  .pos-ver  { grid-column: 3; grid-row: 2; }
+  .pos-v3   { grid-column: 3; grid-row: 3; }
+
+  /* ── FOOTER NOTE ── */
+  .focus-note {
+    margin: 40px auto 0;
+    max-width: 860px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(16,185,129,0.05));
+    border: 1px solid rgba(37,99,235,0.2);
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.6;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+
+  .focus-note strong { color: #60a5fa; }
+
+  footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: #334155;
+    font-family: 'Space Mono', monospace;
+    animation: fadeUp 0.7s 0.5s ease both;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Responsive */
+  @media (max-width: 760px) {
+    .mindmap {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+    }
+    .pos-fund,.pos-vec,.pos-dis,.pos-v2,.pos-ver,.pos-v3 { grid-column: 1; grid-row: auto; }
+    .center-wrap { grid-column: 1; grid-row: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header>
+    <span class="label">Redes &amp; Telecomunicaciones — Cisco IOS</span>
+    <h1>OSPF — Open Shortest Path First</h1>
+    <p class="subtitle">Cobertura de OSPFv2 y OSPFv3 con conceptos operativos y comandos de configuración IOS</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf8"></span>Fundamentos</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></span>Vecindad y Estados</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b"></span>Diseño y Áreas</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf8"></span>OSPFv2 IPv4</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#10b981;box-shadow:0 0 6px #10b981"></span>Verificación</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#10b981;box-shadow:0 0 6px #10b981"></span>OSPFv3 IPv6</div>
+  </div>
+
+  <div class="mindmap">
+
+    <!-- ── LEFT CARDS ── -->
+
+    <!-- Fundamentos -->
+    <div class="card fund pos-fund">
+      <div class="card-title">Fundamentos del Protocolo</div>
+      <div class="items">
+        <div class="item">IGP de estado de enlace basado en el algoritmo SPF de Dijkstra.</div>
+        <div class="item">Construye una LSDB y calcula la mejor ruta por costo.</div>
+        <div class="item">Convergencia rápida, jerarquía por áreas y soporte ECMP.</div>
+        <div class="item">Usa Router ID de 32 bits (formato IP). Se elige por loopback o manual.</div>
+      </div>
+    </div>
+
+    <!-- Vecindad -->
+    <div class="card vec pos-vec">
+      <div class="card-title">Vecindad y Estados OSPF</div>
+      <div class="items">
+        <div class="item">Down → Init → 2-Way → ExStart → Exchange → Loading → <strong style="color:#d8b4fe;">Full</strong></div>
+        <div class="item">Hello y Dead timers deben coincidir para formar adyacencia.</div>
+        <div class="item">En redes multiaccess aparecen <strong style="color:#d8b4fe;">DR y BDR</strong> para reducir flooding.</div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="code-items">
+          <div class="code-item">show ip ospf neighbor</div>
+          <div class="code-item">show ospfv3 neighbor</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diseño -->
+    <div class="card dis pos-dis">
+      <div class="card-title">Diseño, Áreas y Buenas Prácticas</div>
+      <div class="items">
+        <div class="item"><strong style="color:#fcd34d;">Area 0</strong> es el backbone; todas las demás áreas deben conectarse lógicamente a ella.</div>
+        <div class="item"><strong style="color:#fcd34d;">ABR</strong> conecta áreas; <strong style="color:#fcd34d;">ASBR</strong> redistribuye rutas externas.</div>
+        <div class="item">Passive-interface en enlaces LAN sin vecinos para seguridad y estabilidad.</div>
+        <div class="item">Costos consistentes, router-id explícito y sumarización en bordes.</div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center-wrap">
+      <div class="center-node">
+        <div class="ospf-title">OSPF</div>
+        <div class="ospf-sub">Open Shortest<br>Path First</div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT CARDS ── -->
+
+    <!-- OSPFv2 -->
+    <div class="card v2 pos-v2">
+      <div class="card-title">OSPFv2 — IPv4 y Comandos IOS</div>
+      <div class="items">
+        <div class="item">Proceso clásico para IPv4. Se anuncia con <code style="color:#7dd3fc;">network</code> + wildcard y area.</div>
+      </div>
+      <div class="code-items" style="margin-top:10px;">
+        <div class="code-item">router ospf 1</div>
+        <div class="code-item">router-id 1.1.1.1</div>
+        <div class="code-item">auto-cost reference-bandwidth 1000</div>
+        <div class="code-item">network 10.0.0.0 0.0.0.255 area 0</div>
+        <div class="code-item">passive-interface g0/0</div>
+        <div class="code-item">default-information originate</div>
+        <div class="code-item">show ip ospf neighbor / interface / database</div>
+      </div>
+    </div>
+
+    <!-- Verificación -->
+    <div class="card ver pos-ver">
+      <div class="card-title">Comandos Transversales y Verificación</div>
+      <div class="code-items">
+        <div class="code-item">show ip route ospf</div>
+        <div class="code-item">show ipv6 route ospf</div>
+        <div class="code-item">show ip protocols</div>
+        <div class="code-item">show ip ospf interface brief</div>
+        <div class="code-item">show ospfv3 interface brief</div>
+        <div class="code-item">show ip ospf database</div>
+        <div class="code-item">show ospfv3 database</div>
+      </div>
+    </div>
+
+    <!-- OSPFv3 -->
+    <div class="card v3 pos-v3">
+      <div class="card-title">OSPFv3 — IPv6 y Comandos IOS</div>
+      <div class="items">
+        <div class="item">Diseñado para IPv6; la activación suele hacerse por interfaz.</div>
+      </div>
+      <div class="code-items" style="margin-top:10px;">
+        <div class="code-item">ipv6 unicast-routing</div>
+        <div class="code-item">ipv6 router ospf 10</div>
+        <div class="code-item">router-id 3.3.3.3</div>
+        <div class="code-item">auto-cost reference-bandwidth 1000</div>
+        <div class="code-item">int g0/0</div>
+        <div class="code-item">ipv6 address 2001:db8:1::1/64</div>
+        <div class="code-item">ipv6 ospf 10 area 0</div>
+        <div class="code-item">show ospfv3 neighbor / interface / database</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOCUS NOTE -->
+  <div class="focus-note">
+    <strong>Enfoque CCIE:</strong> entender LSDB, tipos de LSA, áreas, elecciones DR/BDR, timers, costos, troubleshooting y diferencias operativas entre OSPFv2 y OSPFv3.
+  </div>
+
+  <footer>
+    OSPF — Open Shortest Path First &mdash; Material Educativo
+  </footer>
+
+</div>
+
+</body>
+</html>
