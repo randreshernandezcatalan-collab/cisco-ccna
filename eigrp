@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EIGRP — Protocolo de Enrutamiento</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --node-bg: #1a1f35;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+
+    --c-que:      #eab308;
+    --c-tablas:   #14b8a6;
+    --c-caract:   #10b981;
+    --c-metrica:  #06b6d4;
+    --c-algoritmo:#f97316;
+    --c-transport:#3b82f6;
+    --c-actualiz: #ef4444;
+    --c-terminos: #a855f7;
+    --c-da:       #84cc16;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 24px 60px;
+    overflow-x: auto;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; }
+
+  /* HEADER */
+  header { text-align: center; margin-bottom: 12px; animation: fadeDown 0.6s ease both; }
+  header .label {
+    font-family: 'Space Mono', monospace; font-size: 11px;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 12px; display: block;
+  }
+  header h1 {
+    font-family: 'DM Sans', sans-serif; font-weight: 700;
+    font-size: clamp(26px, 4vw, 42px);
+    background: linear-gradient(135deg, #84cc16 0%, #14b8a6 40%, #3b82f6 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; letter-spacing: -0.02em;
+  }
+  header .subtitle { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+
+  /* LEGEND */
+  .legend {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 12px 22px; margin: 22px 0 36px;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* CARD BASE */
+  .card {
+    border-radius: 14px; padding: 16px 18px;
+    border: 1px solid; transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+  .card:hover { transform: translateY(-3px); }
+
+  .card-title {
+    font-size: 13px; font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .card-title::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 8px currentColor; flex-shrink: 0;
+  }
+
+  .items { display: flex; flex-direction: column; gap: 6px; }
+  .item { display: flex; gap: 8px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+  .item::before { content: '›'; flex-shrink: 0; font-weight: 700; opacity: 0.6; margin-top: 1px; }
+
+  .code-items { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .code-item {
+    font-family: 'Space Mono', monospace; font-size: 10.5px;
+    color: #94a3b8; background: rgba(255,255,255,0.04);
+    border-radius: 5px; padding: 5px 9px; border-left: 2px solid;
+  }
+
+  /* TAG (pill) */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    border: 1px solid; font-weight: 600; letter-spacing: 0.03em;
+  }
+
+  /* COLOR VARIANTS */
+  .c-que      { --c: var(--c-que); }
+  .c-tablas   { --c: var(--c-tablas); }
+  .c-caract   { --c: var(--c-caract); }
+  .c-metrica  { --c: var(--c-metrica); }
+  .c-algoritmo{ --c: var(--c-algoritmo); }
+  .c-transport{ --c: var(--c-transport); }
+  .c-actualiz { --c: var(--c-actualiz); }
+  .c-terminos { --c: var(--c-terminos); }
+  .c-da       { --c: var(--c-da); }
+
+  .card[class*="c-"] {
+    background: color-mix(in srgb, var(--c) 9%, transparent);
+    border-color: color-mix(in srgb, var(--c) 30%, transparent);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--c) 6%, transparent);
+  }
+  .card[class*="c-"]:hover {
+    box-shadow: 0 0 40px color-mix(in srgb, var(--c) 20%, transparent), 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .card-title { color: var(--c, #e2e8f0); }
+  .code-item  { border-color: var(--c, #334155); }
+  .item::before { color: var(--c, #94a3b8); }
+  .tag {
+    color: var(--c, #e2e8f0);
+    border-color: color-mix(in srgb, var(--c) 40%, transparent);
+    background: color-mix(in srgb, var(--c) 10%, transparent);
+  }
+
+  /* CENTER NODE */
+  .center-node {
+    background: linear-gradient(135deg, #1a2a1a, #0f1f0f);
+    border: 2px solid #22c55e;
+    border-radius: 18px;
+    padding: 22px 28px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(34,197,94,0.2), 0 0 120px rgba(34,197,94,0.08);
+  }
+  .center-node .main { font-size: 28px; font-weight: 800; color: #4ade80; letter-spacing: -0.02em; }
+  .center-node .sub  { font-size: 11px; color: #86efac; margin-top: 4px; font-family: 'Space Mono', monospace; letter-spacing: 0.1em; }
+
+  /* LAYOUT SECTIONS */
+  .section { margin-bottom: 28px; animation: fadeUp 0.7s ease both; }
+
+  /* Top row: ¿Qué es? + Tablas + Características */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  /* Middle row: center + flanks */
+  .mid-row {
+    display: grid;
+    grid-template-columns: 1fr 300px 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+
+  .mid-left, .mid-right { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Bottom row */
+  .bot-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* DA table inline */
+  .da-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .da-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted); padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    text-align: left;
+  }
+  .da-table td { padding: 5px 10px; color: var(--text-muted); }
+  .da-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .da-table .highlight { color: #4ade80; font-weight: 700; font-family: 'Space Mono', monospace; }
+  .da-table .num { color: #fbbf24; font-family: 'Space Mono', monospace; font-weight: 700; }
+
+  /* DUAL states */
+  .dual-states {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 10px;
+  }
+  .dual-state {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; padding: 6px 10px;
+    background: rgba(255,255,255,0.03); border-radius: 7px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .dual-arrow { color: var(--c-algoritmo); font-weight: 700; font-size: 14px; }
+
+  /* Packets grid */
+  .packets-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px;
+  }
+  .packet {
+    font-size: 11.5px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid; text-align: center; font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  /* Footer note */
+  .footer-note {
+    margin: 36px auto 0; max-width: 900px;
+    background: linear-gradient(135deg, rgba(34,197,94,0.07), rgba(20,184,166,0.04));
+    border: 1px solid rgba(34,197,94,0.18);
+    border-radius: 12px; padding: 14px 22px;
+    font-size: 12.5px; color: var(--text-muted);
+    text-align: center; line-height: 1.6;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+  .footer-note strong { color: #4ade80; }
+
+  footer {
+    text-align: center; margin-top: 30px;
+    font-size: 12px; color: #334155;
+    font-family: 'Space Mono', monospace;
+    animation: fadeUp 0.7s 0.5s ease both;
+  }
+
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-16px);} to { opacity:1; transform:translateY(0);} }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0);} }
+
+  @media (max-width: 900px) {
+    .top-row, .mid-row, .bot-row { grid-template-columns: 1fr; }
+    .mid-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <span class="label">Redes &amp; Telecomunicaciones — Cisco Propietario</span>
+    <h1>Protocolo EIGRP</h1>
+    <p class="subtitle">Enhanced Interior Gateway Routing Protocol — IGP / EGP · Algoritmo DUAL</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#eab308"></span>¿Qué es?</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#14b8a6"></span>Tablas EIGRP</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Características</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span>Métrica</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f97316"></span>Algoritmo DUAL</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>Transporte Confiable</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Actualizaciones</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>Términos Clave</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#84cc16"></span>Distancia Administrativa</div>
+  </div>
+
+  <!-- TOP ROW -->
+  <div class="top-row">
+
+    <!-- ¿Qué es? -->
+    <div class="card c-que">
+      <div class="card-title">¿Qué es?</div>
+      <div class="items">
+        <div class="item"><strong style="color:#fde047;">Propietario de Cisco</strong> — exclusivamente para equipos Cisco.</div>
+        <div class="item">Actúa como <strong style="color:#fde047;">IGP</strong> dentro de un Sistema Autónomo.</div>
+        <div class="item">Puede actuar como <strong style="color:#fde047;">EGP</strong> en escenarios especiales.</div>
+        <div class="item">Protocolo híbrido: combina características de Vector Distancia y Estado de Enlace.</div>
+      </div>
+    </div>
+
+    <!-- Tablas EIGRP -->
+    <div class="card c-tablas">
+      <div class="card-title">Tablas EIGRP</div>
+      <div class="items">
+        <div class="item"><strong style="color:#5eead4;">Tabla de Vecinos</strong> — guarda las rutas hacia los routers vecinos directamente conectados.</div>
+        <div class="item"><strong style="color:#5eead4;">Tabla de Enrutamiento</strong> — selecciona la mejor ruta hacia el destino.</div>
+        <div class="item"><strong style="color:#5eead4;">Tabla de Topología</strong> — guarda las rutas de todos los destinos conocidos por los vecinos.</div>
+      </div>
+    </div>
+
+    <!-- Características -->
+    <div class="card c-caract">
+      <div class="card-title">Características</div>
+      <div class="tags">
+        <span class="tag c-caract">Convergencia rápida</span>
+        <span class="tag c-caract">Rutas sin bucles</span>
+        <span class="tag c-caract">Rutas de respaldo sin bucles</span>
+        <span class="tag c-caract">Uso mínimo del ancho de banda</span>
+        <span class="tag c-caract">Algoritmo DUAL</span>
+        <span class="tag c-caract">Soporte VLSM / CIDR</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MIDDLE ROW -->
+  <div class="mid-row">
+
+    <!-- LEFT: Métrica + DA -->
+    <div class="mid-left">
+
+      <div class="card c-metrica">
+        <div class="card-title">Métrica Compuesta</div>
+        <div class="items">
+          <div class="item"><strong style="color:#67e8f9;">Ancho de Banda</strong> — capacidad de las interfaces.</div>
+          <div class="item"><strong style="color:#67e8f9;">Retraso</strong> — tiempo de entrega de paquetes.</div>
+          <div class="item"><strong style="color:#67e8f9;">Carga</strong> — cantidad de tráfico en el enlace.</div>
+          <div class="item"><strong style="color:#67e8f9;">Confiabilidad</strong> — probabilidad de fallas.</div>
+          <div class="item"><strong style="color:#67e8f9;">MTU</strong> — unidad máxima de transferencia.</div>
+        </div>
+        <div style="margin-top:12px; padding:10px; background:rgba(6,182,212,0.07); border-radius:8px; border:1px solid rgba(6,182,212,0.2);">
+          <div style="font-size:10px; font-family:'Space Mono',monospace; color:#67e8f9; margin-bottom:4px; letter-spacing:0.1em;">FÓRMULA</div>
+          <div style="font-family:'Space Mono',monospace; font-size:11px; color:#94a3b8; line-height:1.7;">
+            Métrica = 256 × (10<sup>7</sup>/BW + Delay/10)<br>
+            <span style="color:#67e8f9; font-size:10px;">K1=Bandwidth · K3=Delay (por defecto)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card c-da">
+        <div class="card-title">Distancia Administrativa</div>
+        <div class="items">
+          <div class="item">Una de las mejores calificaciones por debajo de BGP.</div>
+          <div class="item">Recibe esta calificación gracias a los factores que intervienen en el uso de su métrica.</div>
+        </div>
+        <table class="da-table">
+          <tr><th>Origen de la ruta</th><th>DA</th></tr>
+          <tr><td>Conectado</td><td class="num">0</td></tr>
+          <tr><td>Estática</td><td class="num">1</td></tr>
+          <tr><td class="highlight">Ruta sumarizada EIGRP</td><td class="num highlight">5</td></tr>
+          <tr><td>BGP externo</td><td class="num">20</td></tr>
+          <tr><td class="highlight">EIGRP interno</td><td class="num highlight">90</td></tr>
+          <tr><td>IGRP</td><td class="num">100</td></tr>
+          <tr><td>OSPF</td><td class="num">110</td></tr>
+          <tr><td>IS-IS</td><td class="num">115</td></tr>
+          <tr><td>RIP</td><td class="num">120</td></tr>
+          <tr><td class="highlight">EIGRP externo</td><td class="num highlight">170</td></tr>
+          <tr><td>BGP interno</td><td class="num">200</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- CENTER -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px; padding-top:10px;">
+      <div class="center-node">
+        <div class="main">EIGRP</div>
+        <div class="sub">PROTOCOLO DE ENRUTAMIENTO</div>
+        <div style="font-size:11px; color:#4ade80; margin-top:8px; opacity:0.7;">Enhanced Interior Gateway<br>Routing Protocol</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Algoritmo DUAL + Transporte + Actualizaciones -->
+    <div class="mid-right">
+
+      <div class="card c-algoritmo">
+        <div class="card-title">Algoritmo DUAL</div>
+        <div class="items">
+          <div class="item">El protocolo DUAL asegura rutas sin bucles en todo momento.</div>
+          <div class="item">Utiliza actualizaciones parciales — solo a los routers afectados por un cambio.</div>
+        </div>
+        <div class="dual-states">
+          <div class="dual-state">
+            <span class="dual-arrow">▶</span>
+            <span>Promote to Successor → Passive (ruta activa)</span>
+          </div>
+          <div class="dual-state">
+            <span class="dual-arrow">▶</span>
+            <span>Sin sucesor factible → Active (consulta vecinos)</span>
+          </div>
+          <div class="dual-state">
+            <span class="dual-arrow">▶</span>
+            <span>Select Best Successor → instala en tabla</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card c-transport">
+        <div class="card-title">Protocolo de Transporte Confiable</div>
+        <div class="items">
+          <div class="item">Utiliza el protocolo <strong style="color:#93c5fd;">RTP (Reliable Transport Protocol)</strong> — no confundir con RTP de multimedia.</div>
+          <div class="item">Garantiza entrega ordenada de paquetes EIGRP a todos los vecinos.</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bot-row">
+
+    <!-- Términos Clave -->
+    <div class="card c-terminos">
+      <div class="card-title">Términos Clave — DUAL</div>
+      <div class="items">
+        <div class="item"><strong style="color:#d8b4fe;">Sucesor</strong> — router sucesor para el reenvío de paquetes; es la ruta menos costosa.</div>
+        <div class="item"><strong style="color:#d8b4fe;">Distancia Factible (FD)</strong> — métrica calculada más baja para llegar a la red destino.</div>
+        <div class="item"><strong style="color:#d8b4fe;">Sucesor Factible (FS)</strong> — ruta de respaldo que cumple la condición factible.</div>
+        <div class="item"><strong style="color:#d8b4fe;">Distancia Publicada (RD)</strong> — métrica que un vecino reporta para llegar al destino.</div>
+        <div class="item"><strong style="color:#d8b4fe;">Condición Factible</strong> — RD del vecino debe ser menor que la FD actual.</div>
+      </div>
+    </div>
+
+    <!-- Actualizaciones -->
+    <div class="card c-actualiz">
+      <div class="card-title">Actualizaciones</div>
+      <div class="items">
+        <div class="item"><strong style="color:#fca5a5;">No envía actualizaciones periódicas</strong> — solo cuando hay cambios en la topología.</div>
+        <div class="item"><strong style="color:#fca5a5;">Actualizaciones limitadas</strong> — solo a los routers afectados por el cambio.</div>
+        <div class="item"><strong style="color:#fca5a5;">Mensaje Hello</strong> — se utiliza para comprobar que sus vecinos siguen conectados.</div>
+        <div class="item">Utiliza <strong style="color:#fca5a5;">5 paquetes diferentes</strong> para su operación.</div>
+      </div>
+      <div class="packets-grid" style="margin-top:12px;">
+        <div class="packet" style="color:#f97316; border-color:rgba(249,115,22,0.35); background:rgba(249,115,22,0.08);">Hello</div>
+        <div class="packet" style="color:#ef4444; border-color:rgba(239,68,68,0.35); background:rgba(239,68,68,0.08);">Actualización</div>
+        <div class="packet" style="color:#3b82f6; border-color:rgba(59,130,246,0.35); background:rgba(59,130,246,0.08);">ACK</div>
+        <div class="packet" style="color:#a855f7; border-color:rgba(168,85,247,0.35); background:rgba(168,85,247,0.08);">Consulta</div>
+        <div class="packet" style="color:#14b8a6; border-color:rgba(20,184,166,0.35); background:rgba(20,184,166,0.08); grid-column: span 2;">Respuesta</div>
+      </div>
+    </div>
+
+    <!-- Comandos IOS -->
+    <div class="card c-caract">
+      <div class="card-title">Comandos IOS — Configuración</div>
+      <div style="font-size:11px; color:#6ee7b7; font-family:'Space Mono',monospace; margin-bottom:6px; opacity:0.7;">EIGRP Clásico (IPv4)</div>
+      <div class="code-items">
+        <div class="code-item">router eigrp {AS-number}</div>
+        <div class="code-item">network {red} {wildcard}</div>
+        <div class="code-item">no auto-summary</div>
+        <div class="code-item">passive-interface {interfaz}</div>
+        <div class="code-item">eigrp router-id {id}</div>
+      </div>
+      <div style="font-size:11px; color:#6ee7b7; font-family:'Space Mono',monospace; margin:10px 0 6px; opacity:0.7;">Verificación</div>
+      <div class="code-items">
+        <div class="code-item">show ip eigrp neighbors</div>
+        <div class="code-item">show ip eigrp topology</div>
+        <div class="code-item">show ip route eigrp</div>
+        <div class="code-item">show ip protocols</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    <strong>Recuerda:</strong> EIGRP solo funciona en equipos Cisco. El algoritmo DUAL garantiza rutas libres de bucles y convergencia ultrarrápida gracias al uso de Sucesores Factibles precomputados. La métrica compuesta usa por defecto <strong>Ancho de Banda</strong> y <strong>Retraso</strong> (K1 y K3).
+  </div>
+
+  <footer>EIGRP — Enhanced Interior Gateway Routing Protocol &mdash; Material Educativo</footer>
+
+</div>
+</body>
+</html>
